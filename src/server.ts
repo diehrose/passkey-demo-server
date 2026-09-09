@@ -8,6 +8,7 @@ dotenv.config();
 
 const app = express();
 const port = 3000;
+const registrationChallenges = new Map<number, string>();
 
 app.use(cors());
 app.use(express.json());
@@ -50,6 +51,9 @@ app.post("/passkey/register/options", async (req, res) => {
 
     const { options, userId } =
       await createRegistrationOptions(pool, username);
+
+    // 暫存 challenge
+    registrationChallenges.set(userId, options.challenge);
 
     res.json({
       ...options,
