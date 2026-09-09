@@ -1,5 +1,6 @@
 import {
   generateRegistrationOptions,
+  verifyRegistrationResponse,
 } from '@simplewebauthn/server';
 import { Pool } from 'pg';
 
@@ -67,4 +68,18 @@ export async function createRegistrationOptions(
     options,
     userId,
   };
+}
+
+export async function verifyRegistration(
+  response: any,
+  expectedChallenge: string,
+) {
+  const verification = await verifyRegistrationResponse({
+    response,
+    expectedChallenge,
+    expectedOrigin: 'http://localhost:3000',
+    expectedRPID: rpID,
+  });
+
+  return verification;
 }

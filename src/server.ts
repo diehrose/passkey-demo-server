@@ -2,7 +2,10 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { Pool } from "pg";
-import { createRegistrationOptions } from './passkey';
+import {
+  createRegistrationOptions,
+  verifyRegistration,
+} from './passkey';
 
 dotenv.config();
 
@@ -64,6 +67,51 @@ app.post("/passkey/register/options", async (req, res) => {
 
     res.status(500).json({
       error: "Failed to create registration options",
+    });
+  }
+});
+
+app.post("/passkey/register/verify", async (req, res) => {
+  try {
+    const { userId, response } = req.body;
+
+    if (!userId || !response) {
+      return res.status(400).json({
+        error: "userId and response are required",
+      });
+    }
+
+    const expectedChallenge =
+      registrationChallenges.get(userId);
+
+    if (!expectedChallenge) {
+      return res.status(400).json({
+        error: "Registration challenge not found",
+      });
+    }
+
+    const verification = await verifyRegistration(
+      response,
+      expectedChallenge,
+    );
+
+    if (!verification.verified) {
+      return res.status(400).json({
+        verified: false,
+      });
+    }
+
+    // 驗證成功後，challenge 就可以刪掉
+    registrationChallenges.delete(userId);
+
+    res.json({
+      verified: true,
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      error: "Failed to verify registration",
     });
   }
 });
