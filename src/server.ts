@@ -22,6 +22,21 @@ const pool = new Pool({
 
 const port = Number(process.env.PORT) || 3000;
 
+app.get('/.well-known/assetlinks.json', (_req, res) => {
+  res.json([
+    {
+      relation: ['delegate_permission/common.handle_all_urls'],
+      target: {
+        namespace: 'android_app',
+        package_name: 'com.pinpin.passkey_demo',
+        sha256_cert_fingerprints: [
+          'BE:05:87:B5:09:26:76:4D:D9:B3:CA:5A:5A:EB:C5:90:32:8A:1C:47:4E:5E:7E:26:72:28:0C:91:9C:A7:ED:76',
+        ],
+      },
+    },
+  ]);
+});
+
 app.listen(port, "0.0.0.0", () => {
   console.log(`Server running on port ${port}`);
 });
