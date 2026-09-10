@@ -10,7 +10,7 @@ import {
 dotenv.config();
 
 const app = express();
-const port = 3000;
+
 const registrationChallenges = new Map<number, string>();
 
 app.use(cors());
@@ -18,6 +18,12 @@ app.use(express.json());
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
+});
+
+const port = Number(process.env.PORT) || 3000;
+
+app.listen(port, "0.0.0.0", () => {
+  console.log(`Server running on port ${port}`);
 });
 
 app.get("/health", async (_req, res) => {
@@ -37,9 +43,6 @@ app.get("/health", async (_req, res) => {
   }
 });
 
-app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}`);
-});
 
 
 app.post("/passkey/register/options", async (req, res) => {
