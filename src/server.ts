@@ -91,45 +91,90 @@ app.post("/passkey/register/options", async (req, res) => {
 
 app.post("/passkey/register/verify", async (req, res) => {
   try {
+    console.log("========== /passkey/register/verify START ==========");
+
     const { userId, response } = req.body;
 
+    console.log("[1] Request received");
+    console.log("userId =", userId);
+    console.log("response exists =", !!response);
+
     if (!userId || !response) {
+      console.error("[1] Missing userId or response");
+
       return res.status(400).json({
         error: "userId and response are required",
       });
     }
 
+    console.log("[2] Looking up registration challenge");
+
     const expectedChallenge =
       registrationChallenges.get(userId);
 
+    console.log(
+      "expectedChallenge =",
+      expectedChallenge
+    );
+
     if (!expectedChallenge) {
+      console.error(
+        "[2] Registration challenge NOT FOUND"
+      );
+
       return res.status(400).json({
         error: "Registration challenge not found",
       });
     }
+
+    console.log("[3] Calling verifyRegistration");
 
     const verification = await verifyRegistration(
       response,
       expectedChallenge,
     );
 
+    console.log("[3] Verification completed");
+    console.log(
+      "verified =",
+      verification.verified
+    );
+
     if (!verification.verified) {
+      console.error(
+        "[3] Passkey verification FAILED"
+      );
+
       return res.status(400).json({
         verified: false,
       });
     }
 
+    console.log(
+      "[4] Verification SUCCESS - deleting challenge"
+    );
+
     // 驗證成功後，challenge 就可以刪掉
     registrationChallenges.delete(userId);
+
+    console.log(
+      "========== /passkey/register/verify SUCCESS =========="
+    );
 
     res.json({
       verified: true,
     });
   } catch (error) {
+    console.error(
+      "========== /passkey/register/verify ERROR =========="
+    );
+
     console.error(error);
 
     res.status(500).json({
-      error: "Failed to verify registration",
+      error: error instanceof Error
+        ? error.message
+        : String(error),
     });
   }
 });
