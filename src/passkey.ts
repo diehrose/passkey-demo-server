@@ -78,7 +78,7 @@ export async function verifyRegistration(
     response,
     expectedChallenge,
     expectedOrigin: [
-      'android:apk-key-hash:vgWHtQkmdk3wM8caWuvFkDKKHEdOXn4mcigMzKyYnWY',
+      'android:apk-key-hash:vgWHtQkmdk3Zs8paWuvFkDKKHEdOXn4mcigMkZyn7XY',
       'https://passkey-demo-server-1.onrender.com'
     ],
     expectedRPID: rpID,
