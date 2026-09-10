@@ -11,8 +11,6 @@ dotenv.config();
 
 const app = express();
 
-const registrationChallenges = new Map<number, string>();
-
 app.use(cors());
 app.use(express.json());
 
@@ -73,8 +71,27 @@ app.post("/passkey/register/options", async (req, res) => {
     const { options, userId } =
       await createRegistrationOptions(pool, username);
 
-    // 暫存 challenge
-    registrationChallenges.set(userId, options.challenge);
+    // 存 challenge
+    await pool.query(
+        `
+        INSERT INTO passkey_challenges
+            (user_id, challenge, type, expires_at)
+        VALUES
+            ($1, $2, $3, NOW() + INTERVAL '5 minutes')
+        `,
+        [
+            userId,
+            options.challenge,
+            "registration",
+        ],
+    );
+    console.log(
+      "[REGISTER OPTIONS] challenge stored",
+      {
+        userId,
+        challenge: options.challenge,
+      }
+    );
 
     res.json({
       ...options,
@@ -107,17 +124,42 @@ app.post("/passkey/register/verify", async (req, res) => {
       });
     }
 
-    console.log("[2] Looking up registration challenge");
-
-    const expectedChallenge =
-      registrationChallenges.get(userId);
-
     console.log(
-      "expectedChallenge =",
-      expectedChallenge
+        "[2] Looking up registration challenge",
+      );
+
+    /**
+       * Find the latest valid registration challenge.
+       *
+       * Challenge:
+       * - belongs to this user
+       * - must be registration type
+       * - must not be expired
+       */  
+    const challengeResult = await pool.query(
+        `
+        SELECT id, challenge
+        FROM passkey_challenges
+        WHERE user_id = $1
+          AND type = $2
+          AND expires_at > NOW()
+        ORDER BY created_at DESC
+        LIMIT 1
+        `,
+        [
+            userId,
+            "registration",
+        ],
     );
 
-    if (!expectedChallenge) {
+    const challengeRow = challengeResult.rows[0];
+
+    console.log("[2] Challenge lookup result", {
+        found: !!challengeRow,
+        challengeId: challengeRow?.id,
+    });
+
+    if (!challengeRow) {
       console.error(
         "[2] Registration challenge NOT FOUND"
       );
@@ -128,6 +170,9 @@ app.post("/passkey/register/verify", async (req, res) => {
     }
 
     console.log("[3] Calling verifyRegistration");
+
+    const expectedChallenge =
+        challengeRow.challenge;
 
     const verification = await verifyRegistration(
       response,
@@ -155,7 +200,13 @@ app.post("/passkey/register/verify", async (req, res) => {
     );
 
     // 驗證成功後，challenge 就可以刪掉
-    registrationChallenges.delete(userId);
+     await pool.query(
+        `
+        DELETE FROM passkey_challenges
+        WHERE id = $1
+        `,
+        [challengeRow.id],
+      );
 
     console.log(
       "========== /passkey/register/verify SUCCESS =========="
