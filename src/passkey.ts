@@ -5,7 +5,7 @@ import {
 import { Pool } from 'pg';
 
 const rpName = 'Passkey Demo';
-const rpID = 'localhost';
+const rpID = 'passkey-demo-server-1.onrender.com';
 
 export async function createRegistrationOptions(
   pool: Pool,
@@ -77,7 +77,7 @@ export async function verifyRegistration(
   const verification = await verifyRegistrationResponse({
     response,
     expectedChallenge,
-    expectedOrigin: 'http://localhost:3000',
+    expectedOrigin: 'https://passkey-demo-server-1.onrender.com',
     expectedRPID: rpID,
   });
 
