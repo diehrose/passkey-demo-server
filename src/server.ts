@@ -36,6 +36,7 @@ app.get('/.well-known/assetlinks.json', (_req, res) => {
         package_name: 'com.pinpin.passkey_demo',
         sha256_cert_fingerprints: [
           'BE:05:87:B5:09:26:76:4D:D9:B3:CA:5A:5A:EB:C5:90:32:8A:1C:47:4E:5E:7E:26:72:28:0C:91:9C:A7:ED:76',
+          '81:75:3A:95:10:02:2F:40:DC:1C:58:69:44:9E:57:4D:71:02:8D:F2:DF:BE:99:73:5B:12:03:50:E3:E1:FF:73'
         ],
       },
     },
