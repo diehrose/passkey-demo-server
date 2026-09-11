@@ -134,6 +134,7 @@ export async function verifyLogin(
       expectedChallenge,
       expectedOrigin: [
         "android:apk-key-hash:vgWHtQkmdk3Zs8paWuvFkDKKHEdOXn4mcigMkZyn7XY",
+        'android:apk-key-hash:gXU6lRACL0DcHFhpRJ5XTXECjfLfvplzWxIDUOPh_3M',
         "https://passkey-demo-server-1.onrender.com",
       ],
       expectedRPID: rpID,
