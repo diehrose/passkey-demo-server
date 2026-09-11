@@ -2,6 +2,7 @@ import {
   generateRegistrationOptions,
   verifyRegistrationResponse,
   generateAuthenticationOptions,
+  verifyAuthenticationResponse,
 } from '@simplewebauthn/server';
 import { Pool } from 'pg';
 
@@ -88,11 +89,9 @@ export async function verifyRegistration(
   return verification;
 }
 
-
 export async function createLoginOptions(
   pool: Pool,
   userId: number,
-  username: string,
 ) {
   const credentialResult =
     await pool.query(
@@ -120,4 +119,29 @@ export async function createLoginOptions(
     });
 
   return options;
+}
+
+export async function verifyLogin(
+  response: any,
+  expectedChallenge: string,
+  credentialPublicKey: Buffer,
+  credentialCounter: number,
+) {
+  const verification =
+    await verifyAuthenticationResponse({
+      response,
+      expectedChallenge,
+      expectedOrigin: [
+        "android:apk-key-hash:vgWHtQkmdk3Zs8paWuvFkDKKHEdOXn4mcigMkZyn7XY",
+        "https://passkey-demo-server-1.onrender.com",
+      ],
+      expectedRPID: rpID,
+      credential: {
+        id: response.id,
+        publicKey: credentialPublicKey,
+        counter: credentialCounter,
+      },
+    });
+
+  return verification;
 }
