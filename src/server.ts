@@ -106,9 +106,12 @@ app.post("/passkey/register/options", async (req, res) => {
   }
 });
 
+
 app.post("/passkey/register/verify", async (req, res) => {
   try {
-    console.log("========== /passkey/register/verify START ==========");
+    console.log(
+      "========== /passkey/register/verify START ==========",
+    );
 
     const { userId, response } = req.body;
 
@@ -117,77 +120,100 @@ app.post("/passkey/register/verify", async (req, res) => {
     console.log("response exists =", !!response);
 
     if (!userId || !response) {
-      console.error("[1] Missing userId or response");
+      console.error(
+        "[1] Missing userId or response",
+      );
 
       return res.status(400).json({
         error: "userId and response are required",
       });
     }
 
-    console.log(
-        "[2] Looking up registration challenge",
-      );
-
     /**
-       * Find the latest valid registration challenge.
-       *
-       * Challenge:
-       * - belongs to this user
-       * - must be registration type
-       * - must not be expired
-       */  
-    const challengeResult = await pool.query(
-        `
-        SELECT id, challenge
-        FROM passkey_challenges
-        WHERE user_id = $1
-          AND type = $2
-          AND expires_at > NOW()
-        ORDER BY created_at DESC
-        LIMIT 1
-        `,
-        [
-            userId,
-            "registration",
-        ],
+     * Find the latest valid registration challenge.
+     *
+     * Challenge:
+     * - belongs to this user
+     * - must be registration type
+     * - must not be expired
+     */
+    console.log(
+      "[2] Looking up registration challenge",
     );
 
-    const challengeRow = challengeResult.rows[0];
+    const challengeResult = await pool.query(
+      `
+      SELECT
+        id,
+        challenge
+      FROM passkey_challenges
+      WHERE user_id = $1
+        AND type = $2
+        AND expires_at > NOW()
+      ORDER BY created_at DESC
+      LIMIT 1
+      `,
+      [
+        userId,
+        "registration",
+      ],
+    );
 
-    console.log("[2] Challenge lookup result", {
+    const challengeRow =
+      challengeResult.rows[0];
+
+    console.log(
+      "[2] Challenge lookup result",
+      {
         found: !!challengeRow,
         challengeId: challengeRow?.id,
-    });
+      },
+    );
 
     if (!challengeRow) {
       console.error(
-        "[2] Registration challenge NOT FOUND"
+        "[2] Registration challenge NOT FOUND",
       );
 
       return res.status(400).json({
-        error: "Registration challenge not found",
+        error:
+          "Registration challenge not found",
       });
     }
 
-    console.log("[3] Calling verifyRegistration");
-
     const expectedChallenge =
-        challengeRow.challenge;
+      challengeRow.challenge;
 
-    const verification = await verifyRegistration(
-      response,
+    console.log(
+      "[2] expectedChallenge =",
       expectedChallenge,
     );
 
-    console.log("[3] Verification completed");
+    /**
+     * Verify Passkey registration
+     */
+    console.log(
+      "[3] Calling verifyRegistration",
+    );
+
+    const verification =
+      await verifyRegistration(
+        response,
+        expectedChallenge,
+      );
+
+    console.log(
+      "[3] Verification completed",
+    );
+
     console.log(
       "verified =",
-      verification.verified
+      verification.verified,
     );
 
     if (!verification.verified) {
       console.error(
-        "[3] Passkey verification FAILED"
+        "[3] Passkey verification FAILED",
       );
 
       return res.status(400).json({
@@ -196,36 +222,123 @@ app.post("/passkey/register/verify", async (req, res) => {
     }
 
     console.log(
-      "[4] Verification SUCCESS - deleting challenge"
+      "[4] Passkey verification SUCCESS",
     );
 
-    // 驗證成功後，challenge 就可以刪掉
-     await pool.query(
-        `
-        DELETE FROM passkey_challenges
-        WHERE id = $1
-        `,
-        [challengeRow.id],
+    /**
+     * Get credential information
+     *
+     * registrationInfo contains:
+     * - credential.id
+     * - credential.publicKey
+     * - credential.counter
+     */
+    const registrationInfo =
+      verification.registrationInfo;
+
+    if (!registrationInfo) {
+      console.error(
+        "[4] registrationInfo is missing",
       );
 
+      return res.status(500).json({
+        error:
+          "Registration info is missing",
+      });
+    }
+
     console.log(
-      "========== /passkey/register/verify SUCCESS =========="
+      "[4] Registration info received",
     );
 
-    res.json({
+    console.log(
+      "credentialId =",
+      registrationInfo.credential.id,
+    );
+
+    console.log(
+      "counter =",
+      registrationInfo.credential.counter,
+    );
+
+    /**
+     * Save Passkey credential
+     */
+    console.log(
+      "[5] Saving Passkey credential",
+    );
+
+    await pool.query(
+      `
+      INSERT INTO passkey_credentials
+        (
+          user_id,
+          credential_id,
+          public_key,
+          counter
+        )
+      VALUES
+        (
+          $1,
+          $2,
+          $3,
+          $4
+        )
+      `,
+      [
+        userId,
+        registrationInfo.credential.id,
+        Buffer.from(
+          registrationInfo.credential.publicKey,
+        ).toString("base64"),
+        registrationInfo.credential.counter,
+      ],
+    );
+
+    console.log(
+      "[5] Passkey credential saved",
+    );
+
+    /**
+     * Delete used challenge
+     *
+     * Challenge is one-time use.
+     */
+    console.log(
+      "[6] Deleting used registration challenge",
+    );
+
+    await pool.query(
+      `
+      DELETE FROM passkey_challenges
+      WHERE id = $1
+      `,
+      [challengeRow.id],
+    );
+
+    console.log(
+      "[6] Registration challenge deleted",
+    );
+
+    console.log(
+      "========== /passkey/register/verify SUCCESS ==========",
+    );
+
+    return res.json({
       verified: true,
     });
   } catch (error) {
     console.error(
-      "========== /passkey/register/verify ERROR =========="
+      "========== /passkey/register/verify ERROR ==========",
     );
 
     console.error(error);
 
-    res.status(500).json({
-      error: error instanceof Error
-        ? error.message
-        : String(error),
+    return res.status(500).json({
+      error:
+        error instanceof Error
+          ? error.message
+          : String(error),
     });
   }
 });
