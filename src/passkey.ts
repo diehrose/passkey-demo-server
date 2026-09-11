@@ -1,6 +1,7 @@
 import {
   generateRegistrationOptions,
   verifyRegistrationResponse,
+  generateAuthenticationOptions,
 } from '@simplewebauthn/server';
 import { Pool } from 'pg';
 
@@ -85,4 +86,38 @@ export async function verifyRegistration(
   });
 
   return verification;
+}
+
+
+export async function createLoginOptions(
+  pool: Pool,
+  userId: number,
+  username: string,
+) {
+  const credentialResult =
+    await pool.query(
+      `
+      SELECT credential_id
+      FROM passkey_credentials
+      WHERE user_id = $1
+      `,
+      [userId],
+    );
+
+  const allowCredentials =
+    credentialResult.rows.map(
+      (row) => ({
+        id: row.credential_id,
+        type: "public-key" as const,
+      }),
+    );
+
+  const options =
+    await generateAuthenticationOptions({
+      rpID,
+      allowCredentials,
+      userVerification: "preferred",
+    });
+
+  return options;
 }

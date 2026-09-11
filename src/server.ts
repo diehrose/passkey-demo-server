@@ -6,6 +6,7 @@ import {
   createRegistrationOptions,
   verifyRegistration,
 } from './passkey';
+import { createLoginRouter } from "./login";
 
 dotenv.config();
 
@@ -14,9 +15,15 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
+
+app.use(
+  "/passkey/login",
+  createLoginRouter(pool),
+);
 
 const port = Number(process.env.PORT) || 3000;
 
