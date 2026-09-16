@@ -9,32 +9,29 @@ export function createCredentialRouter(
 ) {
 
   /**
-   * GET /passkey/credentials
+   * POST /passkey/credentials/list
    *
-   * Query:
-   * ?username=test@example.com
+   * Request:
+   * {
+   *   "username": "test@example.com"
+   * }
    *
    * 取得指定使用者的所有 Passkey
    */
-  router.get(
-    "/",
+  router.post(
+    "/list",
     async (req, res) => {
       try {
-        const { username } = req.query;
-
         console.log(
-          "========== /passkey/credentials START ==========",
+          "========== /passkey/credentials/list START ==========",
         );
 
-        console.log(
-          "[1] username =",
-          username,
-        );
+        const { username } = req.body;
 
-        if (
-          typeof username !== "string" ||
-          !username
-        ) {
+        console.log("[1] Request received");
+        console.log("username =", username);
+
+        if (!username) {
           return res.status(400).json({
             error: "username is required",
           });
@@ -43,6 +40,8 @@ export function createCredentialRouter(
         /**
          * Find user
          */
+        console.log("[2] Looking up user");
+
         const userResult =
           await pool.query(
             `
@@ -59,7 +58,7 @@ export function createCredentialRouter(
           userResult.rows[0];
 
         console.log(
-          "[2] User lookup",
+          "[2] User lookup result",
           {
             found: !!user,
             userId: user?.id,
@@ -75,6 +74,10 @@ export function createCredentialRouter(
         /**
          * Find credentials
          */
+        console.log(
+          "[3] Looking up Passkey credentials",
+        );
+
         const credentialResult =
           await pool.query(
             `
@@ -90,12 +93,12 @@ export function createCredentialRouter(
           );
 
         console.log(
-          "[3] Credential count =",
+          "[3] Passkey credential count =",
           credentialResult.rows.length,
         );
 
         console.log(
-          "========== /passkey/credentials SUCCESS ==========",
+          "========== /passkey/credentials/list SUCCESS ==========",
         );
 
         return res.json({
@@ -107,7 +110,7 @@ export function createCredentialRouter(
 
       } catch (error) {
         console.error(
-          "========== /passkey/credentials ERROR ==========",
+          "========== /passkey/credentials/list ERROR ==========",
         );
 
         console.error(error);
@@ -124,43 +127,42 @@ export function createCredentialRouter(
 
 
   /**
-   * DELETE /passkey/credentials/:credentialId
+   * POST /passkey/credentials/delete
    *
-   * Query:
-   * ?username=test@example.com
+   * Request:
+   * {
+   *   "username": "test@example.com",
+   *   "credentialId": "xxx..."
+   * }
    *
    * 刪除指定使用者的 Passkey
    */
-  router.delete(
-    "/:credentialId",
+  router.post(
+    "/delete",
     async (req, res) => {
       try {
-        const {
-          credentialId,
-        } = req.params;
+        console.log(
+          "========== /passkey/credentials/delete START ==========",
+        );
 
         const {
           username,
-        } = req.query;
+          credentialId,
+        } = req.body;
+
+        console.log("[1] Request received");
 
         console.log(
-          "========== /passkey/credentials DELETE START ==========",
-        );
-
-        console.log(
-          "[1] username =",
+          "username =",
           username,
         );
 
         console.log(
-          "[1] credentialId =",
+          "credentialId =",
           credentialId,
         );
 
-        if (
-          typeof username !== "string" ||
-          !username
-        ) {
+        if (!username) {
           return res.status(400).json({
             error: "username is required",
           });
@@ -176,11 +178,14 @@ export function createCredentialRouter(
         /**
          * Find user
          */
+        console.log("[2] Looking up user");
+
         const userResult =
           await pool.query(
             `
             SELECT
-              id
+              id,
+              username
             FROM users
             WHERE username = $1
             `,
@@ -191,7 +196,7 @@ export function createCredentialRouter(
           userResult.rows[0];
 
         console.log(
-          "[2] User lookup",
+          "[2] User lookup result",
           {
             found: !!user,
             userId: user?.id,
@@ -212,6 +217,10 @@ export function createCredentialRouter(
          *
          * 避免刪到其他使用者的 Credential
          */
+        console.log(
+          "[3] Deleting Passkey credential",
+        );
+
         const deleteResult =
           await pool.query(
             `
@@ -248,7 +257,7 @@ export function createCredentialRouter(
         );
 
         console.log(
-          "========== /passkey/credentials DELETE SUCCESS ==========",
+          "========== /passkey/credentials/delete SUCCESS ==========",
         );
 
         return res.json({
@@ -257,7 +266,7 @@ export function createCredentialRouter(
 
       } catch (error) {
         console.error(
-          "========== /passkey/credentials DELETE ERROR ==========",
+          "========== /passkey/credentials/delete ERROR ==========",
         );
 
         console.error(error);
