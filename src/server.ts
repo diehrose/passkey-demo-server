@@ -7,6 +7,9 @@ import {
   verifyRegistration,
 } from './passkey';
 import { createLoginRouter } from "./login";
+import {
+  createCredentialRouter,
+} from "./credential";
 
 dotenv.config();
 
@@ -23,6 +26,10 @@ const pool = new Pool({
 app.use(
   "/passkey/login",
   createLoginRouter(pool),
+);
+app.use(
+  "/passkey/credentials",
+  createCredentialRouter(pool),
 );
 
 const port = Number(process.env.PORT) || 3000;
