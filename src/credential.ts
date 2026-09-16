@@ -1,3 +1,4 @@
+
 import { Router } from "express";
 import { Pool } from "pg";
 
@@ -6,8 +7,12 @@ const router = Router();
 export function createCredentialRouter(
   pool: Pool,
 ) {
+
   /**
    * GET /passkey/credentials
+   *
+   * Query:
+   * ?username=test@example.com
    *
    * 取得指定使用者的所有 Passkey
    */
@@ -15,14 +20,61 @@ export function createCredentialRouter(
     "/",
     async (req, res) => {
       try {
-        const { userId } = req.query;
+        const { username } = req.query;
 
-        if (!userId) {
+        console.log(
+          "========== /passkey/credentials START ==========",
+        );
+
+        console.log(
+          "[1] username =",
+          username,
+        );
+
+        if (
+          typeof username !== "string" ||
+          !username
+        ) {
           return res.status(400).json({
-            error: "userId is required",
+            error: "username is required",
           });
         }
 
+        /**
+         * Find user
+         */
+        const userResult =
+          await pool.query(
+            `
+            SELECT
+              id,
+              username
+            FROM users
+            WHERE username = $1
+            `,
+            [username],
+          );
+
+        const user =
+          userResult.rows[0];
+
+        console.log(
+          "[2] User lookup",
+          {
+            found: !!user,
+            userId: user?.id,
+          },
+        );
+
+        if (!user) {
+          return res.status(404).json({
+            error: "User not found",
+          });
+        }
+
+        /**
+         * Find credentials
+         */
         const credentialResult =
           await pool.query(
             `
@@ -34,14 +86,30 @@ export function createCredentialRouter(
             WHERE user_id = $1
             ORDER BY id
             `,
-            [userId],
+            [user.id],
           );
 
+        console.log(
+          "[3] Credential count =",
+          credentialResult.rows.length,
+        );
+
+        console.log(
+          "========== /passkey/credentials SUCCESS ==========",
+        );
+
         return res.json({
-          userId,
-          credentials: credentialResult.rows,
+          userId: user.id,
+          username: user.username,
+          credentials:
+            credentialResult.rows,
         });
+
       } catch (error) {
+        console.error(
+          "========== /passkey/credentials ERROR ==========",
+        );
+
         console.error(error);
 
         return res.status(500).json({
@@ -54,8 +122,12 @@ export function createCredentialRouter(
     },
   );
 
+
   /**
    * DELETE /passkey/credentials/:credentialId
+   *
+   * Query:
+   * ?username=test@example.com
    *
    * 刪除指定使用者的 Passkey
    */
@@ -63,16 +135,83 @@ export function createCredentialRouter(
     "/:credentialId",
     async (req, res) => {
       try {
-        const { credentialId } = req.params;
-        const { userId } = req.query;
+        const {
+          credentialId,
+        } = req.params;
 
-        if (!userId || !credentialId) {
+        const {
+          username,
+        } = req.query;
+
+        console.log(
+          "========== /passkey/credentials DELETE START ==========",
+        );
+
+        console.log(
+          "[1] username =",
+          username,
+        );
+
+        console.log(
+          "[1] credentialId =",
+          credentialId,
+        );
+
+        if (
+          typeof username !== "string" ||
+          !username
+        ) {
           return res.status(400).json({
-            error:
-              "userId and credentialId are required",
+            error: "username is required",
           });
         }
 
+        if (!credentialId) {
+          return res.status(400).json({
+            error:
+              "credentialId is required",
+          });
+        }
+
+        /**
+         * Find user
+         */
+        const userResult =
+          await pool.query(
+            `
+            SELECT
+              id
+            FROM users
+            WHERE username = $1
+            `,
+            [username],
+          );
+
+        const user =
+          userResult.rows[0];
+
+        console.log(
+          "[2] User lookup",
+          {
+            found: !!user,
+            userId: user?.id,
+          },
+        );
+
+        if (!user) {
+          return res.status(404).json({
+            error: "User not found",
+          });
+        }
+
+        /**
+         * Delete credential
+         *
+         * IMPORTANT:
+         * user_id + credential_id
+         *
+         * 避免刪到其他使用者的 Credential
+         */
         const deleteResult =
           await pool.query(
             `
@@ -82,7 +221,7 @@ export function createCredentialRouter(
             RETURNING id
             `,
             [
-              userId,
+              user.id,
               credentialId,
             ],
           );
@@ -90,16 +229,37 @@ export function createCredentialRouter(
         if (
           deleteResult.rows.length === 0
         ) {
+          console.log(
+            "[3] Credential NOT FOUND",
+          );
+
           return res.status(404).json({
             error:
               "Passkey credential not found",
           });
         }
 
+        console.log(
+          "[3] Credential deleted",
+          {
+            id:
+              deleteResult.rows[0].id,
+          },
+        );
+
+        console.log(
+          "========== /passkey/credentials DELETE SUCCESS ==========",
+        );
+
         return res.json({
           deleted: true,
         });
+
       } catch (error) {
+        console.error(
+          "========== /passkey/credentials DELETE ERROR ==========",
+        );
+
         console.error(error);
 
         return res.status(500).json({
