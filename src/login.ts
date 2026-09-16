@@ -58,7 +58,12 @@ export function createLoginRouter(
         );
 
         if (!user) {
-          return res.status(404).json({
+          console.log("[2] User not found");
+
+          return res.json({
+            userFound: false,
+            hasCredentials: false,
+            userId: null,
             error: "User not found",
           });
         }
@@ -85,9 +90,13 @@ export function createLoginRouter(
         if (
           credentialResult.rows.length === 0
         ) {
-          return res.status(400).json({
-            error:
-              "No Passkey credential found",
+          console.log("[3] No Passkey credential found");
+
+          return res.json({
+            userFound: true,
+            hasCredentials: false,
+            userId: user.id,
+            error: "No Passkey credential found",
           });
         }
 
@@ -149,6 +158,8 @@ export function createLoginRouter(
         return res.json({
           ...options,
           userId: user.id,
+          userFound: true,
+          hasCredentials: true,
         });
       } catch (error) {
         console.error(
