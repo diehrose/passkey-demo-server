@@ -18,112 +18,69 @@ export function createCredentialRouter(
    *
    * 取得指定使用者的所有 Passkey
    */
-  router.post(
-    "/list",
-    async (req, res) => {
-      try {
-        console.log(
-          "========== /passkey/credentials/list START ==========",
-        );
+ router.post("/list", async (req, res) => {
+  try {
+    const { username } = req.body;
 
-        const { username } = req.body;
+    if (!username) {
+      return res.status(400).json({
+        error: "username is required",
+      });
+    }
 
-        console.log("[1] Request received");
-        console.log("username =", username);
+    // 找 user
+    const userResult = await pool.query(
+      `
+      SELECT id
+      FROM users
+      WHERE username = $1
+      `,
+      [username],
+    );
 
-        if (!username) {
-          return res.status(400).json({
-            error: "username is required",
-          });
-        }
+    const user = userResult.rows[0];
 
-        /**
-         * Find user
-         */
-        console.log("[2] Looking up user");
+    // User 不存在
+    // → 不視為錯誤，直接回空的 credentials
+    if (!user) {
+      return res.json({
+        userId: null,
+        username,
+        credentials: [],
+      });
+    }
 
-        const userResult =
-          await pool.query(
-            `
-            SELECT
-              id,
-              username
-            FROM users
-            WHERE username = $1
-            `,
-            [username],
-          );
+    // User 存在，查詢 Passkey
+    const credentialResult = await pool.query(
+      `
+      SELECT
+        id,
+        credential_id,
+        counter
+      FROM passkey_credentials
+      WHERE user_id = $1
+      ORDER BY id
+      `,
+      [user.id],
+    );
 
-        const user =
-          userResult.rows[0];
+    return res.json({
+      userId: user.id,
+      username,
+      credentials: credentialResult.rows,
+    });
 
-        console.log(
-          "[2] User lookup result",
-          {
-            found: !!user,
-            userId: user?.id,
-          },
-        );
+  } catch (error) {
+    console.error(
+      "GET credentials error:",
+      error,
+    );
 
-        if (!user) {
-          return res.status(404).json({
-            error: "User not found",
-          });
-        }
-
-        /**
-         * Find credentials
-         */
-        console.log(
-          "[3] Looking up Passkey credentials",
-        );
-
-        const credentialResult =
-          await pool.query(
-            `
-            SELECT
-              id,
-              credential_id,
-              counter
-            FROM passkey_credentials
-            WHERE user_id = $1
-            ORDER BY id
-            `,
-            [user.id],
-          );
-
-        console.log(
-          "[3] Passkey credential count =",
-          credentialResult.rows.length,
-        );
-
-        console.log(
-          "========== /passkey/credentials/list SUCCESS ==========",
-        );
-
-        return res.json({
-          userId: user.id,
-          username: user.username,
-          credentials:
-            credentialResult.rows,
-        });
-
-      } catch (error) {
-        console.error(
-          "========== /passkey/credentials/list ERROR ==========",
-        );
-
-        console.error(error);
-
-        return res.status(500).json({
-          error:
-            error instanceof Error
-              ? error.message
-              : String(error),
-        });
-      }
-    },
-  );
+    return res.status(500).json({
+      error: "internal server error",
+    });
+  }
+});
 
 
   /**
